@@ -35,9 +35,9 @@ func (p *Memory) requirePage(ipage int64) []byte {
 }
 
 func (p *Memory) ReadAt(b []byte, pos int64) (n int, err error) {
+	ipage := pos / PageSize
+	off := int(pos % PageSize)
 	for {
-		ipage := pos / PageSize
-		off := int(pos % PageSize)
 		page := p.requirePage(ipage)
 		readed := copy(b, page[off:])
 		n += readed
@@ -45,5 +45,7 @@ func (p *Memory) ReadAt(b []byte, pos int64) (n int, err error) {
 			return
 		}
 		b = b[readed:]
+		off = 0
+		ipage++
 	}
 }

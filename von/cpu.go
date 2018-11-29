@@ -1,12 +1,12 @@
 package von
 
-// <op byte> <len byte> <params [len]byte>
+// <op byte> <oplen byte> <params [len]byte>
 
 const (
 	NOOP  = iota
-	JMP   // 跳转到 <len=8 byte> <pc int64>
-	READ  // 读取端口数据 <port>
-	WRITE // 写端口数据 <port>
+	JMP   // 跳转到 <oplen=8 byte> <pc int64>
+	READ  // 读取端口数据 <oplen=2 byte> <port uint16>
+	WRITE // 写端口数据 <oplen=2 byte> <port uint16>
 )
 
 type CPU struct {

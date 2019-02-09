@@ -2,7 +2,7 @@ package von
 
 import "fmt"
 
-const PageSize = 1024 * 64
+const PageSize = 1024
 
 type PageEvent interface {
 	OnPageMiss(ipage int64) ([]byte, error)

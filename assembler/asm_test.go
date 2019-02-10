@@ -7,6 +7,8 @@ import (
 	"github.com/qiniu/arch/devices/keyboard"
 	"github.com/qiniu/arch/drivers"
 	"github.com/qiniu/arch/von"
+
+	kb "github.com/qiniu/arch/drivers/keyboard"
 )
 
 type shortMem struct {
@@ -26,12 +28,20 @@ func (p *shortMem) OnPageMiss(ipage int64) ([]byte, error) {
 	return p.b, nil
 }
 
+var (
+	theKeyboard *keyboard.Device
+)
+
 func run(b *Builder) *von.CPU {
 	b.Halt()
 	code := b.Bytes()
 	mem := von.NewMemory(newShortMem(code))
 	cpu := von.NewCPU(mem)
-	cpu.AddDevice(drivers.KEYBOARD, keyboard.New())
+	devKeyboard := theKeyboard
+	if devKeyboard == nil {
+		devKeyboard = keyboard.New()
+	}
+	cpu.AddDevice(drivers.KEYBOARD, devKeyboard)
 	cpu.AddDevice(drivers.CONSOLE, console.New())
 	cpu.Run(0)
 	return cpu
@@ -96,7 +106,6 @@ func TestJZ_false(t *testing.T) {
 }
 
 func TestProc(t *testing.T) {
-	von.Debug = true
 	asm := New(nil)
 	asm.PushInt(0).
 		PushInt(2).
@@ -117,4 +126,97 @@ func TestProc(t *testing.T) {
 
 func TestKeyboard(t *testing.T) {
 
+	von.Debug = true
+
+	theKeyboard = keyboard.New()
+	theKeyboard.KeyDown(kb.KeyShift).
+		KeyPress(kb.KeyH).
+		KeyUp(kb.KeyShift).
+		KeyPress(kb.KeyE).
+		KeyPress(kb.KeyL).
+		KeyPress(kb.KeyL).
+		KeyPress(kb.KeyO)
+
+	asm := New(nil)
+	asm.PushString("").
+		PushInt(128).
+		Alloc(). // var2 = make([]byte, 128)
+		PushArg(2).
+		Read(drivers.KEYBOARD). // var3: nread int64
+		PushInt(0).             // var4: i int64
+		PushInt(0).             // var5: c byte
+		PushInt(0).             // var6: t byte
+		PushInt(0).             // var7: shift bool
+		Label("loop").
+		PushArg(4).
+		PushArg(3).
+		LessThanInt(). // i < nread?
+		JZ("done").
+		PushArg(2).
+		PushArg(4).
+		PushInt(1).
+		Add().
+		Index().
+		SetArg(5). // c = var2[i+1]
+		PushArg(2).
+		PushArg(4).
+		Index().
+		SetArg(6). // t = var2[i]
+		PushArg(5).
+		PushInt(int64(kb.KeyShift)).
+		EqualInt(). // c == kb.KeyShift?
+		JZ("normalkey").
+		PushArg(6).
+		PushInt(kb.KEYDOWN).
+		EqualInt().
+		SetArg(7). // shift = (t == kb.KEYDOWN)
+		Jmp("continue").
+		Label("normalkey").
+		PushArg(6).
+		PushInt(kb.KEYDOWN).
+		EqualInt(). // t == kb.KEYDOWN?
+		JZ("continue").
+		PushArg(1).
+		PushArg(7).
+		JZ("lowercase").
+		PushInt('A').
+		Jmp("lcend").
+		Label("lowercase").
+		PushInt('a').
+		Label("lcend"). // (shift ? 'A' : 'a')
+		PushArg(5).
+		Add().
+		PushInt(int64(kb.KeyA)).
+		Sub().
+		String().
+		Concat().
+		SetArg(1). // var1 += string((shift ? 'A' : 'a') + c - kb.KeyA)
+		Label("continue").
+		PushArg(4).
+		PushInt(2).
+		Add().
+		SetArg(4). // i += 2
+		Jmp("loop").
+		Label("done").
+		PushArg(1)
+	ret := run(asm).Top(1)
+	if notEq(ret, "Hello") {
+		t.Fatal("TestKeyboard:", ret)
+	}
 }
+
+/*
+	var1 := ""
+	var2 := make([]byte, 128)
+	nread := Read(drivers.KEYBOARD, var2)
+	shift := false
+	for i := 0; i < nread; i += 2 {
+		c := var2[i+1]
+		t := var2[i]
+		if c == kb.KeyShift {
+			shift = (t == kb.KEYDOWN)
+		} else if t == kb.KEYDOWN {
+			var1 += string((shift ? 'A' : 'a') + c - kb.KeyA)
+		}
+	}
+*/

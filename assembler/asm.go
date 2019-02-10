@@ -111,6 +111,11 @@ func (p *Builder) String() *Builder {
 	return p
 }
 
+func (p *Builder) Alloc() *Builder {
+	p.writeU16(von.ALLOC)
+	return p
+}
+
 func (p *Builder) Read(port uint16) *Builder {
 	p.writeU16(von.READ)
 	p.writeU16(port)
@@ -148,6 +153,24 @@ func (p *Builder) SetArg(index int16) *Builder {
 	return p
 }
 
+func (p *Builder) Ret(narg int) *Builder {
+	p.writeU16(von.RET)
+	p.writeU16(uint16(narg))
+	return p
+}
+
+func (p *Builder) Jmp(name string) *Builder {
+	return p.goLabel(von.JMP, name)
+}
+
+func (p *Builder) JZ(name string) *Builder {
+	return p.goLabel(von.JZ, name)
+}
+
+func (p *Builder) Call(name string) *Builder {
+	return p.goLabel(von.CALL, name)
+}
+
 func (p *Builder) Label(name string) *Builder {
 	if _, ok := p.defLabels[name]; ok {
 		panic("Redefine label: " + name)
@@ -174,24 +197,6 @@ func (p *Builder) goLabel(op uint16, name string) *Builder {
 		lref.data = append(lref.data, p.data.Len())
 		p.writeI64(0)
 	}
-	return p
-}
-
-func (p *Builder) Jmp(name string) *Builder {
-	return p.goLabel(von.JMP, name)
-}
-
-func (p *Builder) JZ(name string) *Builder {
-	return p.goLabel(von.JZ, name)
-}
-
-func (p *Builder) Call(name string) *Builder {
-	return p.goLabel(von.CALL, name)
-}
-
-func (p *Builder) Ret(narg int) *Builder {
-	p.writeU16(von.RET)
-	p.writeU16(uint16(narg))
 	return p
 }
 

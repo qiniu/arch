@@ -37,6 +37,7 @@ const (
 	CONCAT // 字符串连接 (arg1, arg2 []byte)
 	INDEX  // 取字符 (s []byte, index int64)
 	STRING // 字符转为字符串 (ch int64)
+	ALLOC  // 申请空间 (n int64)
 	READ   // 读取端口数据 <port uint16> (arg1 []byte)
 	WRITE  // 写端口数据 <port uint16> (arg1 []byte)
 	PUSHI  // 入栈 <val int64>
@@ -59,7 +60,7 @@ type CPU struct {
 
 func NewCPU(mem *Memory) *CPU {
 	devs := make(map[int]Device)
-	return &CPU{mem: mem, devs: devs}
+	return &CPU{mem: mem, devs: devs, bp: -1}
 }
 
 func (p *CPU) AddDevice(port int, dev Device) {
@@ -149,9 +150,14 @@ func (p *CPU) Run(pc int64) {
 			debug("INDEX:", p.stk)
 		case STRING:
 			ret := p.top(1)
-			*ret = string(rune((*ret).(int64)))
+			*ret = []byte(string(rune((*ret).(int64))))
 			pc += 2
 			debug("STRING:", p.stk)
+		case ALLOC:
+			ret := p.top(1)
+			*ret = make([]byte, (*ret).(int64))
+			pc += 2
+			debug("ALLOC:", p.stk)
 		case READ:
 			port := readU16(mem, pc+2)
 			buf := p.pop().([]byte)
@@ -160,7 +166,7 @@ func (p *CPU) Run(pc int64) {
 			if err != nil {
 				panic(err)
 			}
-			p.push(n)
+			p.push(int64(n))
 			pc += 4
 			debug("READ:", p.stk)
 		case WRITE:
@@ -171,7 +177,7 @@ func (p *CPU) Run(pc int64) {
 			if err != nil {
 				panic(err)
 			}
-			p.push(n)
+			p.push(int64(n))
 			pc += 4
 			debug("WRITE:", p.stk)
 		case PUSHI:

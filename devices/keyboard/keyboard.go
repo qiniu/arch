@@ -38,16 +38,22 @@ func (p *Device) Write(b []byte) (int, error) {
 	panic("can't write to keyboard")
 }
 
-func (p *Device) KeyDown(key keyboard.Key) {
+func (p *Device) KeyDown(key keyboard.Key) *Device {
 	p.data.PushBack(keyEvent{
 		evType: keyboard.KEYDOWN,
 		evData: byte(key),
 	})
+	return p
 }
 
-func (p *Device) KeyUp(key keyboard.Key) {
+func (p *Device) KeyUp(key keyboard.Key) *Device {
 	p.data.PushBack(keyEvent{
 		evType: keyboard.KEYUP,
 		evData: byte(key),
 	})
+	return p
+}
+
+func (p *Device) KeyPress(key keyboard.Key) *Device {
+	return p.KeyDown(key).KeyUp(key)
 }

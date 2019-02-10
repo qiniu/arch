@@ -3,6 +3,9 @@ package assembler
 import (
 	"testing"
 
+	"github.com/qiniu/arch/devices/console"
+	"github.com/qiniu/arch/devices/keyboard"
+	"github.com/qiniu/arch/drivers"
 	"github.com/qiniu/arch/von"
 )
 
@@ -28,18 +31,67 @@ func run(b *Builder) *von.CPU {
 	code := b.Bytes()
 	mem := von.NewMemory(newShortMem(code))
 	cpu := von.NewCPU(mem)
+	cpu.AddDevice(drivers.KEYBOARD, keyboard.New())
+	cpu.AddDevice(drivers.CONSOLE, console.New())
 	cpu.Run(0)
 	return cpu
 }
 
-func TestBasic(t *testing.T) {
+func notEq(ret interface{}, v string) bool {
+	return string(ret.([]byte)) != v
+}
+
+func TestInt(t *testing.T) {
 	asm := New(nil)
 	asm.PushInt(2).
 		PushInt(3).
 		Mul()
 	ret := run(asm).Top(1)
 	if ret != int64(6) {
-		t.Fatal("TestBasic:", ret)
+		t.Fatal("TestInt:", ret)
+	}
+}
+
+func TestString(t *testing.T) {
+	asm := New(nil)
+	asm.PushString("Hello, ").
+		PushString("World").
+		Concat()
+	ret := run(asm).Top(1)
+	if notEq(ret, "Hello, World") {
+		t.Fatal("TestString:", ret)
+	}
+}
+
+func TestJZ_true(t *testing.T) {
+	asm := New(nil)
+	asm.PushString("Hello").
+		PushString("World").
+		LessThanString().
+		JZ("else").
+		PushString("true").
+		Halt().
+		Label("else").
+		PushString("false")
+	ret := run(asm).Top(1)
+	if notEq(ret, "true") {
+		t.Fatal("TestJZ_true:", ret)
+	}
+}
+
+func TestJZ_false(t *testing.T) {
+	asm := New(nil)
+	asm.PushInt(3).
+		PushInt(2).
+		LessThanInt().
+		JZ("else").
+		PushString("true").
+		Halt().
+		Label("else").
+		PushString("false")
+	ret := run(asm).Top(1)
+	if notEq(ret, "false") {
+		t.Fatal("TestJZ_false:", ret)
 	}
 }
 
@@ -61,4 +113,8 @@ func TestProc(t *testing.T) {
 	if ret != int64(-1) {
 		t.Fatal("TestProc:", ret)
 	}
+}
+
+func TestKeyboard(t *testing.T) {
+
 }

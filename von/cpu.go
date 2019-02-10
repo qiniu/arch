@@ -1,6 +1,7 @@
 package von
 
 import (
+	"bytes"
 	"encoding/binary"
 	"log"
 )
@@ -21,23 +22,32 @@ import (
 //   ret 2      ;函数返回，将所有参数弹出去 (只留下返回值)
 //
 const (
-	NOOP  = iota
-	ADD   // 加法 (arg1, arg2 int64)
-	SUB   // 减法 (arg1, arg2 int64)
-	MUL   // 乘法 (arg1, arg2 int64)
-	DIV   // 除法 (arg1, arg2 int64)
-	MOD   // 取余 (arg1, arg2 int64)
-	NEG   // 取负 (arg1 int64)
-	READ  // 读取端口数据 <port uint16> (arg1 []byte)
-	WRITE // 写端口数据 <port uint16> (arg1 []byte)
-	PUSHI // 入栈 <val int64>
-	PUSHS // 入栈 <len uint16> <val [len]byte>
-	PUSHA // 取参数入栈 <index int16>
-	SETA  // 修改参数 <index int16> (arg1 interface{})
-	JMP   // 跳转到 <delta int64>
-	CALL  // 调用函数 <delta int64>
-	RET   // 返回 <narg uint16>
-	HALT  // 终止
+	NOOP   = iota
+	ADD    // 加法 (arg1, arg2 int64)
+	SUB    // 减法 (arg1, arg2 int64)
+	MUL    // 乘法 (arg1, arg2 int64)
+	DIV    // 除法 (arg1, arg2 int64)
+	MOD    // 取余 (arg1, arg2 int64)
+	NEG    // 取负 (arg1 int64)
+	LTI    // 小于 (arg1, arg2 int64)
+	LTS    // 小于 (arg1, arg2 []byte)
+	EQI    // 等于 (arg1, arg2 int64)
+	EQS    // 等于 (arg1, arg2 []byte)
+	NOT    // 非 (arg1 int64)
+	CONCAT // 字符串连接 (arg1, arg2 []byte)
+	INDEX  // 取字符 (s []byte, index int64)
+	STRING // 字符转为字符串 (ch int64)
+	READ   // 读取端口数据 <port uint16> (arg1 []byte)
+	WRITE  // 写端口数据 <port uint16> (arg1 []byte)
+	PUSHI  // 入栈 <val int64>
+	PUSHS  // 入栈 <len uint16> <val [len]byte>
+	PUSHA  // 取参数入栈 <index int16>
+	SETA   // 修改参数 <index int16> (arg1 interface{})
+	JMP    // 跳转到 <delta int64>
+	JZ     // 如果为假跳转到 <delta int64>
+	CALL   // 调用函数 <delta int64>
+	RET    // 返回 <narg uint16>
+	HALT   // 终止
 )
 
 type CPU struct {
@@ -96,6 +106,52 @@ func (p *CPU) Run(pc int64) {
 			*ret = -(*ret).(int64)
 			pc += 2
 			debug("NEG:", p.stk)
+		case LTI:
+			v := p.pop().(int64)
+			ret := p.top(1)
+			*ret = fromBool((*ret).(int64) < v)
+			pc += 2
+			debug("LTI:", p.stk)
+		case LTS:
+			v := p.pop().([]byte)
+			ret := p.top(1)
+			*ret = fromBool(bytes.Compare((*ret).([]byte), v) < 0)
+			pc += 2
+			debug("LTS:", p.stk)
+		case EQI:
+			v := p.pop().(int64)
+			ret := p.top(1)
+			*ret = fromBool((*ret).(int64) == v)
+			pc += 2
+			debug("EQI:", p.stk)
+		case EQS:
+			v := p.pop().([]byte)
+			ret := p.top(1)
+			*ret = fromBool(bytes.Equal((*ret).([]byte), v))
+			pc += 2
+			debug("EQS:", p.stk)
+		case NOT:
+			ret := p.top(1)
+			*ret = not((*ret).(int64))
+			pc += 2
+			debug("NOT:", p.stk)
+		case CONCAT:
+			v := p.pop().([]byte)
+			ret := p.top(1)
+			*ret = append((*ret).([]byte), v...)
+			pc += 2
+			debug("CONCAT:", p.stk)
+		case INDEX:
+			v := p.pop().(int64)
+			ret := p.top(1)
+			*ret = int64(((*ret).([]byte))[v])
+			pc += 2
+			debug("INDEX:", p.stk)
+		case STRING:
+			ret := p.top(1)
+			*ret = string(rune((*ret).(int64)))
+			pc += 2
+			debug("STRING:", p.stk)
 		case READ:
 			port := readU16(mem, pc+2)
 			buf := p.pop().([]byte)
@@ -144,6 +200,15 @@ func (p *CPU) Run(pc int64) {
 			delta := readI64(mem, pc+2)
 			pc += delta
 			debug("JMP")
+		case JZ:
+			delta := readI64(mem, pc+2)
+			v := p.pop().(int64)
+			if v == 0 {
+				pc += delta
+			} else {
+				pc += 10
+			}
+			debug("JZ:", pc)
 		case CALL:
 			base := p.bp
 			delta := readI64(mem, pc+2)
@@ -220,6 +285,20 @@ func readBytes(mem *Memory, off int64, n int) (v []byte) {
 		panic(err)
 	}
 	return
+}
+
+func fromBool(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func not(b int64) int64 {
+	if b == 0 {
+		return 1
+	}
+	return 0
 }
 
 func debug(a ...interface{}) {

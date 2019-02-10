@@ -1,4 +1,4 @@
-package devices
+package drivers
 
 const (
 	NIL = iota

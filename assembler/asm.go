@@ -71,6 +71,46 @@ func (p *Builder) Neg() *Builder {
 	return p
 }
 
+func (p *Builder) LessThanInt() *Builder {
+	p.writeU16(von.LTI)
+	return p
+}
+
+func (p *Builder) LessThanString() *Builder {
+	p.writeU16(von.LTS)
+	return p
+}
+
+func (p *Builder) EqualInt() *Builder {
+	p.writeU16(von.EQI)
+	return p
+}
+
+func (p *Builder) EqualString() *Builder {
+	p.writeU16(von.EQS)
+	return p
+}
+
+func (p *Builder) Not() *Builder {
+	p.writeU16(von.NOT)
+	return p
+}
+
+func (p *Builder) Concat() *Builder {
+	p.writeU16(von.CONCAT)
+	return p
+}
+
+func (p *Builder) Index() *Builder {
+	p.writeU16(von.INDEX)
+	return p
+}
+
+func (p *Builder) String() *Builder {
+	p.writeU16(von.STRING)
+	return p
+}
+
 func (p *Builder) Read(port uint16) *Builder {
 	p.writeU16(von.READ)
 	p.writeU16(port)
@@ -124,8 +164,8 @@ func (p *Builder) Label(name string) *Builder {
 	return p
 }
 
-func (p *Builder) Call(name string) *Builder {
-	p.writeU16(von.CALL)
+func (p *Builder) goLabel(op uint16, name string) *Builder {
+	p.writeU16(op)
 	if pc, ok := p.defLabels[name]; ok {
 		base := int64(p.data.Len() - 2)
 		p.writeI64(pc - base)
@@ -135,6 +175,18 @@ func (p *Builder) Call(name string) *Builder {
 		p.writeI64(0)
 	}
 	return p
+}
+
+func (p *Builder) Jmp(name string) *Builder {
+	return p.goLabel(von.JMP, name)
+}
+
+func (p *Builder) JZ(name string) *Builder {
+	return p.goLabel(von.JZ, name)
+}
+
+func (p *Builder) Call(name string) *Builder {
+	return p.goLabel(von.CALL, name)
 }
 
 func (p *Builder) Ret(narg int) *Builder {

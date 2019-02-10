@@ -8,6 +8,7 @@ import (
 	"github.com/qiniu/arch/drivers"
 	"github.com/qiniu/arch/von"
 
+	con "github.com/qiniu/arch/drivers/console"
 	kb "github.com/qiniu/arch/drivers/keyboard"
 )
 
@@ -124,10 +125,7 @@ func TestProc(t *testing.T) {
 	}
 }
 
-func TestKeyboard(t *testing.T) {
-
-	von.Debug = true
-
+func TestKeyboardAndConsole(t *testing.T) {
 	theKeyboard = keyboard.New()
 	theKeyboard.KeyDown(kb.KeyShift).
 		KeyPress(kb.KeyH).
@@ -198,10 +196,16 @@ func TestKeyboard(t *testing.T) {
 		SetArg(4). // i += 2
 		Jmp("loop").
 		Label("done").
+		PushString(string(con.PUTS)).
+		PushArg(1).
+		Concat().
+		PushString("\n").
+		Concat().
+		Write(drivers.CONSOLE). // 将 var1 通过 console 设备输出：PUTS var1+"\n"
 		PushArg(1)
 	ret := run(asm).Top(1)
 	if notEq(ret, "Hello") {
-		t.Fatal("TestKeyboard:", ret)
+		t.Fatal("TestKeyboardAndConsole:", ret)
 	}
 }
 
